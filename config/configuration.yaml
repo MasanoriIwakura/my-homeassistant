@@ -10,11 +10,6 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
-rest_command:
-  echonetlite_update:
-    url: "http://localhost:3000/elapi/v2/devices"
-    method: GET
-
 mqtt:
   sensor:
 

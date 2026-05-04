@@ -49,6 +49,15 @@ mqtt:
       device_class: power
       state_class: measurement
 
+    # ===== 瞬時発電電力 =====
+    - name: "瞬時発電電力"
+      unique_id: solar_instant
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38"
+      value_template: "{{ value_json.instantaneousElectricPowerGeneration | float }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+
 utility_meter:
 
   power_buy_daily:

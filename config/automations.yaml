@@ -7,6 +7,10 @@
       data:
         topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties/instantaneousElectricPower/request"
         payload: ""
+    - service: mqtt.publish
+      data:
+        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/instantaneousElectricPowerGeneration/request"
+        payload: ""
   mode: single
 
 - alias: echonetlite_polling_cumulative

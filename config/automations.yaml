@@ -1,0 +1,8 @@
+- alias: echonetlite_polling
+  trigger:
+    - platform: time_pattern
+      seconds: "/10"
+  action:
+    - service: rest_command.echonetlite_update
+  mode: single
+

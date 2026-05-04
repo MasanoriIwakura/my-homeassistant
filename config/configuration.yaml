@@ -1,0 +1,112 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+rest_command:
+  echonetlite_update:
+    url: "http://localhost:3000/elapi/v2/devices"
+    method: GET
+
+mqtt:
+  sensor:
+
+    # ===== 買電量 =====
+    - name: "買電量"
+      unique_id: power_buy_total
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f"
+      value_template: "{{ value_json.normalDirectionElectricEnergy | float }}"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+
+    # ===== 売電量 =====
+    - name: "売電量"
+      unique_id: power_sell_total
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f"
+      value_template: "{{ value_json.reverseDirectionElectricEnergy | float }}"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+
+    # ===== 発電量 =====
+    - name: "発電量"
+      unique_id: solar_total
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38"
+      value_template: "{{ value_json.cumulativeElectricEnergyOfGeneration | float }}"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+
+    # ===== 瞬時電力 =====
+    - name: "瞬時電力"
+      unique_id: power_instant
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f"
+      value_template: "{{ value_json.instantaneousElectricPower | float }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+
+utility_meter:
+
+  power_buy_daily:
+    source: sensor.power_buy_total
+    cycle: daily
+    name: "買電量（日次）"
+
+  power_buy_monthly:
+    source: sensor.power_buy_total
+    cycle: monthly
+    name: "買電量（月次）"
+
+  power_sell_daily:
+    source: sensor.power_sell_total
+    cycle: daily
+    name: "売電量（日次）"
+
+  power_sell_monthly:
+    source: sensor.power_sell_total
+    cycle: monthly
+    name: "売電量（月次）"
+
+  solar_daily:
+    source: sensor.solar_total
+    cycle: daily
+    name: "発電量（日次）"
+
+  solar_monthly:
+    source: sensor.solar_total
+    cycle: monthly
+    name: "発電量（月次）"
+
+
+template:
+  - sensor:
+      - name: "余剰電力"
+        unique_id: surplus_power
+        unit_of_measurement: "W"
+        device_class: power
+        state: >
+          {% set p = states('sensor.power_instant') | float(0) %}
+          {{ (p * -1) if p < 0 else 0 }}
+
+  - sensor:
+      - name: "売電金額_日次"
+        unique_id: sell_price_daily
+        unit_of_measurement: "円"
+        state: >
+          {{ states('sensor.power_sell_daily') | float(0) * 16 }}
+
+      - name: "売電金額_月次"
+        unique_id: sell_price_monthly
+        unit_of_measurement: "円"
+        state: >
+          {{ states('sensor.power_sell_monthly') | float(0) * 16 }}
+

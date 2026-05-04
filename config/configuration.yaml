@@ -109,6 +109,15 @@ template:
           {% set p = states('sensor.power_instant') | float(0) %}
           {{ p if p > 0 else 0 }}
 
+      - name: "家庭消費"
+        unique_id: home_consumption
+        unit_of_measurement: "W"
+        device_class: power
+        state: >
+          {% set pv = states('sensor.solar_instant') | float(0) %}
+          {% set io = states('sensor.power_instant') | float(0) %}
+          {{ pv + io }}
+
   - sensor:
       - name: "売電金額_日次"
         unique_id: sell_price_daily

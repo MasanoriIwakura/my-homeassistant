@@ -33,3 +33,45 @@
         topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/cumulativeElectricEnergyOfGeneration/request"
         payload: ""
   mode: single
+
+- id: tesla_solar_surplus_charging
+  alias: Tesla太陽光余剰充電
+  mode: single
+  triggers:
+    - trigger: time_pattern
+      minutes: "/1"
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_charge_enabled
+      state: "on"
+    - condition: state
+      entity_id: binary_sensor.tesura_charge_cable
+      state: "on"
+  actions:
+    - variables:
+        surplus: "{{ states('sensor.surplus_power') | float(0) }}"
+        buffer: "{{ states('number.solar_charge_buffer_w') | float(200) }}"
+        current_amps: "{{ states('number.tesura_charge_current') | int(0) }}"
+        is_charging: "{{ states('sensor.tesura_charging') in ['charging', 'starting'] }}"
+        ev_w: "{{ (current_amps * 200) if is_charging else 0 }}"
+        target_amps: >
+          {% set t = ((surplus + ev_w - buffer) / 200) | int(0) %}
+          {{ [[t, 16] | min, 0] | max }}
+    - choose:
+        - conditions: "{{ target_amps < 5 and is_charging }}"
+          sequence:
+            - action: switch.turn_off
+              target: { entity_id: switch.tesura_charge }
+        - conditions: "{{ target_amps >= 5 and not is_charging }}"
+          sequence:
+            - action: number.set_value
+              target: { entity_id: number.tesura_charge_current }
+              data: { value: "{{ target_amps }}" }
+            - delay: "00:00:05"
+            - action: switch.turn_on
+              target: { entity_id: switch.tesura_charge }
+        - conditions: "{{ target_amps >= 5 and is_charging and target_amps != current_amps }}"
+          sequence:
+            - action: number.set_value
+              target: { entity_id: number.tesura_charge_current }
+              data: { value: "{{ target_amps }}" }

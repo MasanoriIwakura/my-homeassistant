@@ -50,7 +50,7 @@
   actions:
     - variables:
         surplus: "{{ states('sensor.surplus_power') | float(0) }}"
-        buffer: "{{ states('number.solar_charge_buffer_w') | float(200) }}"
+        buffer: "{{ states('input_number.solar_charge_buffer_w') | float(200) }}"
         current_amps: "{{ states('number.tesura_charge_current') | int(0) }}"
         is_charging: "{{ states('sensor.tesura_charging') in ['charging', 'starting'] }}"
         ev_w: "{{ (current_amps * 200) if is_charging else 0 }}"

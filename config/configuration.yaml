@@ -10,6 +10,21 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
+input_boolean:
+  solar_charge_enabled:
+    name: テスラ太陽光充電有効化
+    icon: mdi:car-battery
+
+input_number:
+  solar_charge_buffer_w:
+    name: テスラ太陽光充電余剰
+    min: 0
+    max: 1000
+    step: 50
+    mode: slider
+    unit_of_measurement: W
+    icon: mdi:battery-10
+
 mqtt:
   sensor:
 

@@ -40,6 +40,10 @@
   triggers:
     - trigger: time_pattern
       minutes: "/1"
+    - trigger: state
+      entity_id:
+        - input_number.solar_charge_buffer_w
+        - input_boolean.solar_charge_enabled
   conditions:
     - condition: state
       entity_id: input_boolean.solar_charge_enabled

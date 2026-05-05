@@ -53,13 +53,13 @@
       state: "on"
   actions:
     - variables:
-        surplus: "{{ states('sensor.surplus_power') | float(0) }}"
+        grid_io: "{{ states('sensor.power_instant') | float(0) }}"
         buffer: "{{ states('input_number.solar_charge_buffer_w') | float(200) }}"
         current_amps: "{{ states('number.tesura_charge_current') | int(0) }}"
         is_charging: "{{ states('sensor.tesura_charging') in ['charging', 'starting'] }}"
         ev_w: "{{ (current_amps * 200) if is_charging else 0 }}"
         target_amps: >
-          {% set t = ((surplus + ev_w - buffer) / 200) | int(0) %}
+          {% set t = ((ev_w - grid_io - buffer) / 200) | int(0) %}
           {{ [[t, 16] | min, 0] | max }}
     - choose:
         - conditions: "{{ target_amps < 5 and is_charging }}"

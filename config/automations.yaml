@@ -26,11 +26,11 @@
         payload: ""
     - service: mqtt.publish
       data:
-        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties/reverseDirectionElectricEnergy/request"
+        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/cumulativeElectricEnergyOfGeneration/request"
         payload: ""
     - service: mqtt.publish
       data:
-        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/cumulativeElectricEnergyOfGeneration/request"
+        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/cumulativeElectricEnergySold/request"
         payload: ""
   mode: single
 
@@ -43,6 +43,7 @@
     - trigger: state
       entity_id:
         - input_number.solar_charge_buffer_w
+        - input_number.estimated_house_w
         - input_boolean.solar_charge_enabled
   conditions:
     - condition: state
@@ -53,14 +54,14 @@
       state: "on"
   actions:
     - variables:
-        grid_io: "{{ states('sensor.power_instant') | float(0) }}"
+        solar: "{{ states('sensor.solar_instant') | float(0) }}"
         buffer: "{{ states('input_number.solar_charge_buffer_w') | float(200) }}"
+        estimated_house: "{{ states('input_number.estimated_house_w') | float(500) }}"
         min_amps: "{{ states('input_number.solar_charge_min_amps') | int(5) }}"
         current_amps: "{{ states('number.tesura_charge_current') | int(0) }}"
         is_charging: "{{ states('sensor.tesura_charging') in ['charging', 'starting'] }}"
-        ev_w: "{{ (current_amps * 200) if is_charging else 0 }}"
         target_amps: >
-          {% set t = ((ev_w - grid_io - buffer) / 200) | int(0) %}
+          {% set t = ((solar - estimated_house - buffer) / 200) | int(0) %}
           {{ [[t, 16] | min, 0] | max }}
     - choose:
         - conditions: "{{ target_amps < min_amps and is_charging }}"

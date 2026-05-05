@@ -28,26 +28,32 @@ The repository monitors a Nichicon solar/V2H system. Two ECHONET Lite devices ar
 
 | Device ID (truncated) | EOJ | Class | Role |
 |---|---|---|---|
-| `…42624b4a…` | `02a501` | 0x02A5 multipleInputPCS | grid I/O at the PCS connection point |
-| `…4257357052…` | `027901` | 0x0279 pvPowerGeneration | solar PV inverter |
+| `…42624b4a…` | `02a501` | 0x02A5 multipleInputPCS | PV-only PCS (no battery / no V2H connected). `connectedDeviceList` (0xE8) reports just `0x027901`. |
+| `…4257357052…` | `027901` | 0x0279 pvPowerGeneration | solar PV inverter; also exposes the **true cumulative sold-to-grid** counter |
 
-There is **no battery** in this installation, which simplifies the energy balance to `PV発電 + 買電 = 家庭消費 + 売電`.
+There is **no battery** in this installation, but the energy balance still has a hole: **we have no real-time grid I/O measurement**. None of the available properties measures at the grid coupling point — see "Property gotchas" below.
 
 ### Data flow
 
 1. echonetlite2mqtt **does not auto-poll** in v3+ (the legacy `ECHONET_INTERVAL_TO_GET_PROPERTIES` env var is deprecated). To force a fresh ECHONET Lite Get against a device, publish an empty payload to `echonetlite2mqtt/elapi/v2/devices/{deviceId}/properties/{propertyName}/request`.
 2. `automations.yaml` runs two polling loops that publish to those request topics:
    - `echonetlite_polling_instant` — every 10s, refreshes `instantaneousElectricPower` (PCS) and `instantaneousElectricPowerGeneration` (PV).
-   - `echonetlite_polling_cumulative` — every 60s, refreshes `normalDirectionElectricEnergy`, `reverseDirectionElectricEnergy`, `cumulativeElectricEnergyOfGeneration`. Cumulative reads are kept slow on purpose to avoid hammering Wi-SUN/PCS.
+   - `echonetlite_polling_cumulative` — every 60s, refreshes PCS `normalDirectionElectricEnergy`, PV `cumulativeElectricEnergyOfGeneration`, and PV `cumulativeElectricEnergySold`. Cumulative reads are kept slow on purpose to avoid hammering Wi-SUN/PCS.
 3. On every property change echonetlite2mqtt republishes to **`echonetlite2mqtt/elapi/v2/devices/{deviceId}/properties`** (flat `{shortName: value}` JSON) and `…/properties/{propertyName}` (raw value, retained). The device-level topic `…/devices/{deviceId}` is only populated at startup / device-list changes — do **not** subscribe to it for live values. MQTT sensors in `configuration.yaml` therefore use the `/properties` topic and pull individual properties out via `value_template`.
-4. Template sensors then derive higher-level metrics:
-   - `sensor.surplus_power` (= `余剰電力`, also the true surplus in this no-battery setup) and `sensor.power_buy_instant` split the signed `power_instant` into positive/negative halves.
-   - `sensor.home_consumption` = `solar_instant + power_instant` (signed). Equivalent to `発電 + 買電 − 売電` because grid I/O is signed.
-5. `utility_meter` integrations roll the cumulative kWh sensors into daily/monthly buckets, which `sell_price_*` templates multiply by ¥16/kWh.
+4. `utility_meter` integrations roll the cumulative kWh sensors into daily/monthly buckets, which `sell_price_*` templates multiply by ¥16/kWh.
 
-### Sign convention to remember
+### Property gotchas (verified empirically against this hardware)
 
-`sensor.power_instant` (raw `instantaneousElectricPower` from PCS) is **signed**: positive = importing from grid (買電), negative = exporting (売電). Several derived sensors depend on this. If the upstream property ever flips sign, every template in the file breaks together.
+These are not in MRA — they were discovered by direct ECHONET Lite GET via the `es-e1-echonet-ts` CLI:
+
+- **PCS `instantaneousElectricPower` (0xE7) is NOT grid I/O.** It tracks the PCS's own AC-side flow (≒ `-solar_instant`), so house consumption is invisible. At night with significant load it sits near 0 (e.g., 9W standby). Do not use it to derive `home_consumption`, `surplus_power`, or `power_buy_instant`.
+- **PCS `reverseDirectionElectricEnergy` (0xE3) is NOT cumulative sold-to-grid.** It tracks total DC→AC conversion at the PCS, which equals total PV generation (≈ PV `E1`), not what was sold. On this device it overstates real sales by ≈77%. Use **PV `cumulativeElectricEnergySold` (0xE3 on `0x0279`)** instead — this is the true grid-export counter (PV E1 − PV E3 = lifetime self-consumption from solar).
+- **PCS `normalDirectionElectricEnergy` (0xE0) is NOT cumulative purchased-from-grid.** It tracks AC→DC at the PCS itself (≒ PCS standby draw, accumulates very slowly). Real cumulative buy needs a smart meter (`0x0288` via Wi-SUN Route B) which this setup does not yet have.
+- 0x02A5 declares an incomplete `getPropertyMap` (0x9F) — `0xE3` and `0xE7` work via direct GET despite not being listed. Don't rely on the property map alone when probing this device.
+
+### Tesla solar-surplus charging logic
+
+Because real grid I/O is not measurable, the Tesla automation runs in a **solar-only estimation** mode: `target_amps = (solar_instant − estimated_house_w − solar_charge_buffer_w) / 200`. `input_number.estimated_house_w` is a manual stand-in for whole-home consumption — bump it on hot days when AC runs. `solar_charge_min_amps` reflects the vehicle's hardware floor (10A on this setup); below that the loop stops charging instead of issuing setpoints the car ignores.
 
 ## Conventions
 

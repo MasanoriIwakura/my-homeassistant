@@ -12,6 +12,9 @@ SERVICE_ACCOUNT.json
 .homekit.state
 *.pickle
 home-assistant.env
+.env
+*.key
+*.pem
 
 # ---- Databases ----
 *.db
@@ -70,6 +73,7 @@ google*.deb
 # ---- Integration Configs (auto-generated) ----
 google_calendars.yaml
 *.conf
+!nginx.conf
 ecobee.conf
 fitbit.conf
 lyric.conf

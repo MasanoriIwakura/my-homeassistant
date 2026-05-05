@@ -51,14 +51,14 @@ There is **no battery** in this installation, which simplifies the energy balanc
 
 ## Conventions
 
-- All sensor / utility_meter / template entities have explicit `unique_id`. Entity IDs throughout the file (`sensor.power_instant`, etc.) match the `unique_id`, not the Japanese display name. Always set `unique_id` on new entities.
+- All MQTT and template entities have explicit `unique_id` **and** `default_entity_id`. The entity IDs referenced throughout the file (`sensor.power_instant`, etc.) are pinned by `default_entity_id`, **not** auto-derived from the Japanese `name`. Without it, HA's `slugify` transliterates Japanese to Chinese-reading romaji (e.g. `瞬時電力` → `sensor.shun_shi_dian_li`) and `買電量` / `売電量` even collide onto the same slug `mai_dian_liang`. Always set both keys on new MQTT/template entities. Note: `default_entity_id` only takes effect on **first** registration — for entities already in `core.entity_registry` under a wrong ID, rename them via the HA UI (the `unique_id` preserves history). `utility_meter` is unaffected because the dictionary key under `utility_meter:` is itself the entity_id slug.
 - Energy sensors use `device_class: energy` + `state_class: total_increasing` so they appear in the HA Energy dashboard.
 - Power sensors use `device_class: power` + `state_class: measurement`.
 
 ## Adding a new ECHONET Lite property
 
 1. Look up the camelCase `shortName` in the MRA dictionary at `https://github.com/banban525/echonetlite2mqtt/blob/master/MRA_v1.3.1/devices/0x{class}.json`.
-2. Add an MQTT sensor block in `configuration.yaml` whose `state_topic` is `…/devices/{deviceId}/properties` (with the `/properties` suffix) and whose `value_template` pulls `value_json.{shortName}`.
+2. Add an MQTT sensor block in `configuration.yaml` whose `state_topic` is `…/devices/{deviceId}/properties` (with the `/properties` suffix) and whose `value_template` pulls `value_json.{shortName}`. Set `unique_id` and `default_entity_id: sensor.<ascii_name>` so the entity_id is deterministic regardless of the Japanese `name`.
 3. Add an `mqtt.publish` action to the appropriate polling automation (instant vs cumulative) so the value actually refreshes — without this, the sensor will sit at its startup value.
 
 ## Git workflow

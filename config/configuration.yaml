@@ -16,6 +16,7 @@ mqtt:
     # ===== 買電量 =====
     - name: "買電量"
       unique_id: power_buy_total
+      default_entity_id: sensor.power_buy_total
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.normalDirectionElectricEnergy | float }}"
       unit_of_measurement: "kWh"
@@ -25,6 +26,7 @@ mqtt:
     # ===== 売電量 =====
     - name: "売電量"
       unique_id: power_sell_total
+      default_entity_id: sensor.power_sell_total
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.reverseDirectionElectricEnergy | float }}"
       unit_of_measurement: "kWh"
@@ -34,6 +36,7 @@ mqtt:
     # ===== 発電量 =====
     - name: "発電量"
       unique_id: solar_total
+      default_entity_id: sensor.solar_total
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties"
       value_template: "{{ value_json.cumulativeElectricEnergyOfGeneration | float }}"
       unit_of_measurement: "kWh"
@@ -43,6 +46,7 @@ mqtt:
     # ===== 瞬時電力 =====
     - name: "瞬時電力"
       unique_id: power_instant
+      default_entity_id: sensor.power_instant
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.instantaneousElectricPower | float }}"
       unit_of_measurement: "W"
@@ -52,6 +56,7 @@ mqtt:
     # ===== 瞬時発電電力 =====
     - name: "瞬時発電電力"
       unique_id: solar_instant
+      default_entity_id: sensor.solar_instant
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties"
       value_template: "{{ value_json.instantaneousElectricPowerGeneration | float }}"
       unit_of_measurement: "W"
@@ -95,6 +100,7 @@ template:
   - sensor:
       - name: "余剰電力"
         unique_id: surplus_power
+        default_entity_id: sensor.surplus_power
         unit_of_measurement: "W"
         device_class: power
         state: >
@@ -103,6 +109,7 @@ template:
 
       - name: "瞬時買電"
         unique_id: power_buy_instant
+        default_entity_id: sensor.power_buy_instant
         unit_of_measurement: "W"
         device_class: power
         state: >
@@ -111,6 +118,7 @@ template:
 
       - name: "家庭消費"
         unique_id: home_consumption
+        default_entity_id: sensor.home_consumption
         unit_of_measurement: "W"
         device_class: power
         state: >
@@ -121,12 +129,14 @@ template:
   - sensor:
       - name: "売電金額_日次"
         unique_id: sell_price_daily
+        default_entity_id: sensor.sell_price_daily
         unit_of_measurement: "円"
         state: >
           {{ states('sensor.power_sell_daily') | float(0) * 16 }}
 
       - name: "売電金額_月次"
         unique_id: sell_price_monthly
+        default_entity_id: sensor.sell_price_monthly
         unit_of_measurement: "円"
         state: >
           {{ states('sensor.power_sell_monthly') | float(0) * 16 }}

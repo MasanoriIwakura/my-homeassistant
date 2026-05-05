@@ -25,6 +25,15 @@ input_number:
     unit_of_measurement: W
     icon: mdi:battery-10
 
+  solar_charge_min_amps:
+    name: テスラ太陽光充電 最小電流
+    min: 5
+    max: 16
+    step: 1
+    mode: slider
+    unit_of_measurement: A
+    icon: mdi:current-ac
+
 mqtt:
   sensor:
 

@@ -12,6 +12,30 @@ services:
     environment:
       TZ: Asia/Tokyo
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:?TUNNEL_TOKEN is required}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - tunnel-net
+    depends_on:
+      - tesla-pubkey
+
+  tesla-pubkey:
+    image: nginx:alpine
+    container_name: tesla-pubkey
+    restart: unless-stopped
+    volumes:
+      - ./tesla-pubkey/html:/usr/share/nginx/html:ro
+      - ./tesla-pubkey/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - tunnel-net
+
   mosquitto:
     container_name: mosquitto
     image: eclipse-mosquitto:latest
@@ -33,3 +57,6 @@ services:
     environment:
       MQTT_BROKER: mqtt://localhost:1883
 
+networks:
+  tunnel-net:
+    driver: bridge

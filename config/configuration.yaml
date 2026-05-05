@@ -10,12 +10,49 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
+input_boolean:
+  solar_charge_enabled:
+    name: テスラ太陽光充電有効化
+    icon: mdi:car-battery
+
+input_number:
+  solar_charge_buffer_w:
+    name: テスラ太陽光充電余剰
+    min: 0
+    max: 1000
+    step: 50
+    mode: slider
+    unit_of_measurement: W
+    icon: mdi:battery-10
+
+  solar_charge_min_amps:
+    name: テスラ太陽光充電 最小電流
+    min: 5
+    max: 16
+    step: 1
+    mode: slider
+    unit_of_measurement: A
+    icon: mdi:current-ac
+
+  estimated_house_w:
+    name: 家庭消費 推定値
+    min: 0
+    max: 3000
+    step: 50
+    mode: slider
+    unit_of_measurement: W
+    icon: mdi:home-lightning-bolt
+
 mqtt:
   sensor:
 
     # ===== 買電量 =====
+    # NOTE: PCS の normalDirectionElectricEnergy は実際の grid 買電ではなく
+    # PCS 内部の AC-DC 累計（≒ 待機消費）を返すらしく、累計が異常に低い。
+    # 真の買電量はスマートメーター (0x0288) からしか取れない。要対応。
     - name: "買電量"
       unique_id: power_buy_total
+      default_entity_id: sensor.power_buy_total
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.normalDirectionElectricEnergy | float }}"
       unit_of_measurement: "kWh"
@@ -23,10 +60,14 @@ mqtt:
       state_class: total_increasing
 
     # ===== 売電量 =====
+    # ソースは PV (0x0279) の cumulativeElectricEnergySold が正。
+    # PCS の reverseDirectionElectricEnergy は PCS DC-AC 出力総量で、
+    # 真の売電量より約77%過大なため使わない。
     - name: "売電量"
       unique_id: power_sell_total
-      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
-      value_template: "{{ value_json.reverseDirectionElectricEnergy | float }}"
+      default_entity_id: sensor.power_sell_total
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties"
+      value_template: "{{ value_json.cumulativeElectricEnergySold | float }}"
       unit_of_measurement: "kWh"
       device_class: energy
       state_class: total_increasing
@@ -34,6 +75,7 @@ mqtt:
     # ===== 発電量 =====
     - name: "発電量"
       unique_id: solar_total
+      default_entity_id: sensor.solar_total
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties"
       value_template: "{{ value_json.cumulativeElectricEnergyOfGeneration | float }}"
       unit_of_measurement: "kWh"
@@ -41,8 +83,12 @@ mqtt:
       state_class: total_increasing
 
     # ===== 瞬時電力 =====
+    # NOTE: PCS の instantaneousElectricPower は grid 連系点ではなく
+    # PCS 内部 (≒ -solar_instant) を測っているため、家庭消費は反映されない。
+    # 余剰算出には使わず、観察用として残すのみ。
     - name: "瞬時電力"
       unique_id: power_instant
+      default_entity_id: sensor.power_instant
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.instantaneousElectricPower | float }}"
       unit_of_measurement: "W"
@@ -52,6 +98,7 @@ mqtt:
     # ===== 瞬時発電電力 =====
     - name: "瞬時発電電力"
       unique_id: solar_instant
+      default_entity_id: sensor.solar_instant
       state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties"
       value_template: "{{ value_json.instantaneousElectricPowerGeneration | float }}"
       unit_of_measurement: "W"
@@ -93,40 +140,16 @@ utility_meter:
 
 template:
   - sensor:
-      - name: "余剰電力"
-        unique_id: surplus_power
-        unit_of_measurement: "W"
-        device_class: power
-        state: >
-          {% set p = states('sensor.power_instant') | float(0) %}
-          {{ (p * -1) if p < 0 else 0 }}
-
-      - name: "瞬時買電"
-        unique_id: power_buy_instant
-        unit_of_measurement: "W"
-        device_class: power
-        state: >
-          {% set p = states('sensor.power_instant') | float(0) %}
-          {{ p if p > 0 else 0 }}
-
-      - name: "家庭消費"
-        unique_id: home_consumption
-        unit_of_measurement: "W"
-        device_class: power
-        state: >
-          {% set pv = states('sensor.solar_instant') | float(0) %}
-          {% set io = states('sensor.power_instant') | float(0) %}
-          {{ pv + io }}
-
-  - sensor:
       - name: "売電金額_日次"
         unique_id: sell_price_daily
+        default_entity_id: sensor.sell_price_daily
         unit_of_measurement: "円"
         state: >
           {{ states('sensor.power_sell_daily') | float(0) * 16 }}
 
       - name: "売電金額_月次"
         unique_id: sell_price_monthly
+        default_entity_id: sensor.sell_price_monthly
         unit_of_measurement: "円"
         state: >
           {{ states('sensor.power_sell_monthly') | float(0) * 16 }}

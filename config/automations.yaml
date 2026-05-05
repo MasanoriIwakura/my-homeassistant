@@ -1,4 +1,5 @@
-- alias: echonetlite_polling_instant
+- id: echonetlite_polling_instant
+  alias: echonetlite_polling_instant
   trigger:
     - platform: time_pattern
       seconds: "/10"
@@ -13,7 +14,8 @@
         payload: ""
   mode: single
 
-- alias: echonetlite_polling_cumulative
+- id: echonetlite_polling_cumulative
+  alias: echonetlite_polling_cumulative
   trigger:
     - platform: time_pattern
       minutes: "/1"
@@ -24,10 +26,58 @@
         payload: ""
     - service: mqtt.publish
       data:
-        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties/reverseDirectionElectricEnergy/request"
+        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/cumulativeElectricEnergyOfGeneration/request"
         payload: ""
     - service: mqtt.publish
       data:
-        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/cumulativeElectricEnergyOfGeneration/request"
+        topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties/cumulativeElectricEnergySold/request"
         payload: ""
   mode: single
+
+- id: tesla_solar_surplus_charging
+  alias: Tesla太陽光余剰充電
+  mode: single
+  triggers:
+    - trigger: time_pattern
+      minutes: "/1"
+    - trigger: state
+      entity_id:
+        - input_number.solar_charge_buffer_w
+        - input_number.estimated_house_w
+        - input_boolean.solar_charge_enabled
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_charge_enabled
+      state: "on"
+    - condition: state
+      entity_id: binary_sensor.tesura_charge_cable
+      state: "on"
+  actions:
+    - variables:
+        solar: "{{ states('sensor.solar_instant') | float(0) }}"
+        buffer: "{{ states('input_number.solar_charge_buffer_w') | float(200) }}"
+        estimated_house: "{{ states('input_number.estimated_house_w') | float(500) }}"
+        min_amps: "{{ states('input_number.solar_charge_min_amps') | int(5) }}"
+        current_amps: "{{ states('number.tesura_charge_current') | int(0) }}"
+        is_charging: "{{ states('sensor.tesura_charging') in ['charging', 'starting'] }}"
+        target_amps: >
+          {% set t = ((solar - estimated_house - buffer) / 200) | int(0) %}
+          {{ [[t, 16] | min, 0] | max }}
+    - choose:
+        - conditions: "{{ target_amps < min_amps and is_charging }}"
+          sequence:
+            - action: switch.turn_off
+              target: { entity_id: switch.tesura_charge }
+        - conditions: "{{ target_amps >= min_amps and not is_charging }}"
+          sequence:
+            - action: number.set_value
+              target: { entity_id: number.tesura_charge_current }
+              data: { value: "{{ target_amps }}" }
+            - delay: "00:00:05"
+            - action: switch.turn_on
+              target: { entity_id: switch.tesura_charge }
+        - conditions: "{{ target_amps >= min_amps and is_charging and target_amps != current_amps }}"
+          sequence:
+            - action: number.set_value
+              target: { entity_id: number.tesura_charge_current }
+              data: { value: "{{ target_amps }}" }

@@ -10,18 +10,13 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
-rest_command:
-  echonetlite_update:
-    url: "http://localhost:3000/elapi/v2/devices"
-    method: GET
-
 mqtt:
   sensor:
 
     # ===== 買電量 =====
     - name: "買電量"
       unique_id: power_buy_total
-      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f"
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.normalDirectionElectricEnergy | float }}"
       unit_of_measurement: "kWh"
       device_class: energy
@@ -30,7 +25,7 @@ mqtt:
     # ===== 売電量 =====
     - name: "売電量"
       unique_id: power_sell_total
-      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f"
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.reverseDirectionElectricEnergy | float }}"
       unit_of_measurement: "kWh"
       device_class: energy
@@ -39,7 +34,7 @@ mqtt:
     # ===== 発電量 =====
     - name: "発電量"
       unique_id: solar_total
-      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38"
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties"
       value_template: "{{ value_json.cumulativeElectricEnergyOfGeneration | float }}"
       unit_of_measurement: "kWh"
       device_class: energy
@@ -48,8 +43,17 @@ mqtt:
     # ===== 瞬時電力 =====
     - name: "瞬時電力"
       unique_id: power_instant
-      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f"
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c42624b4a61504b314d0955414f/properties"
       value_template: "{{ value_json.instantaneousElectricPower | float }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+
+    # ===== 瞬時発電電力 =====
+    - name: "瞬時発電電力"
+      unique_id: solar_instant
+      state_topic: "echonetlite2mqtt/elapi/v2/devices/fe00006c4257357052646f5a4e09416f38/properties"
+      value_template: "{{ value_json.instantaneousElectricPowerGeneration | float }}"
       unit_of_measurement: "W"
       device_class: power
       state_class: measurement
@@ -96,6 +100,23 @@ template:
         state: >
           {% set p = states('sensor.power_instant') | float(0) %}
           {{ (p * -1) if p < 0 else 0 }}
+
+      - name: "瞬時買電"
+        unique_id: power_buy_instant
+        unit_of_measurement: "W"
+        device_class: power
+        state: >
+          {% set p = states('sensor.power_instant') | float(0) %}
+          {{ p if p > 0 else 0 }}
+
+      - name: "家庭消費"
+        unique_id: home_consumption
+        unit_of_measurement: "W"
+        device_class: power
+        state: >
+          {% set pv = states('sensor.solar_instant') | float(0) %}
+          {% set io = states('sensor.power_instant') | float(0) %}
+          {{ pv + io }}
 
   - sensor:
       - name: "売電金額_日次"

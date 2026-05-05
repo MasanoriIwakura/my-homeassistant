@@ -35,11 +35,11 @@ There is **no battery** in this installation, which simplifies the energy balanc
 
 ### Data flow
 
-1. echonetlite2mqtt **does not auto-poll** in v3+ (the legacy `ECHONET_INTERVAL_TO_GET_PROPERTIES` env var is deprecated). To force a fresh ECHONET Lite Get against a device, publish an empty payload to `echonetlite2mqtt/elapi/v2/devices/{deviceId}/properties/{propertyName}/request`. The device's response is republished to `echonetlite2mqtt/elapi/v2/devices/{deviceId}` as a JSON object.
+1. echonetlite2mqtt **does not auto-poll** in v3+ (the legacy `ECHONET_INTERVAL_TO_GET_PROPERTIES` env var is deprecated). To force a fresh ECHONET Lite Get against a device, publish an empty payload to `echonetlite2mqtt/elapi/v2/devices/{deviceId}/properties/{propertyName}/request`.
 2. `automations.yaml` runs two polling loops that publish to those request topics:
    - `echonetlite_polling_instant` — every 10s, refreshes `instantaneousElectricPower` (PCS) and `instantaneousElectricPowerGeneration` (PV).
    - `echonetlite_polling_cumulative` — every 60s, refreshes `normalDirectionElectricEnergy`, `reverseDirectionElectricEnergy`, `cumulativeElectricEnergyOfGeneration`. Cumulative reads are kept slow on purpose to avoid hammering Wi-SUN/PCS.
-3. MQTT sensors in `configuration.yaml` subscribe to the device-level topic and pull individual properties out via `value_template`.
+3. On every property change echonetlite2mqtt republishes to **`echonetlite2mqtt/elapi/v2/devices/{deviceId}/properties`** (flat `{shortName: value}` JSON) and `…/properties/{propertyName}` (raw value, retained). The device-level topic `…/devices/{deviceId}` is only populated at startup / device-list changes — do **not** subscribe to it for live values. MQTT sensors in `configuration.yaml` therefore use the `/properties` topic and pull individual properties out via `value_template`.
 4. Template sensors then derive higher-level metrics:
    - `sensor.surplus_power` (= `余剰電力`, also the true surplus in this no-battery setup) and `sensor.power_buy_instant` split the signed `power_instant` into positive/negative halves.
    - `sensor.home_consumption` = `solar_instant + power_instant` (signed). Equivalent to `発電 + 買電 − 売電` because grid I/O is signed.
@@ -58,7 +58,7 @@ There is **no battery** in this installation, which simplifies the energy balanc
 ## Adding a new ECHONET Lite property
 
 1. Look up the camelCase `shortName` in the MRA dictionary at `https://github.com/banban525/echonetlite2mqtt/blob/master/MRA_v1.3.1/devices/0x{class}.json`.
-2. Add an MQTT sensor block in `configuration.yaml` with the device topic + a `value_template` that pulls `value_json.{shortName}`.
+2. Add an MQTT sensor block in `configuration.yaml` whose `state_topic` is `…/devices/{deviceId}/properties` (with the `/properties` suffix) and whose `value_template` pulls `value_json.{shortName}`.
 3. Add an `mqtt.publish` action to the appropriate polling automation (instant vs cumulative) so the value actually refreshes — without this, the sensor will sit at its startup value.
 
 ## Git workflow
